@@ -1,7 +1,7 @@
 # Patient-Shared Health Documents via SMART Health Links
 
 > **Status:** Draft for July 2026
-> **Version:** 0.9.0
+> **Version:** 0.9.1
 
 ## Introduction
 
