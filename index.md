@@ -64,6 +64,8 @@ This IG defines:
 └──────────────┘                                    └──────────────┘
 ```
 
+> **Try it:** A working prototype with a sample QR code is available at [pshd-shl.exe.xyz/prototype.html](https://pshd-shl.exe.xyz/prototype.html).
+
 :::info
 ### Optional Workflow: Ahead-of-Time Check-In
 
@@ -73,8 +75,6 @@ Receivers that support this workflow SHALL resolve and process the submitted SHL
 
 This workflow is optional and does not change the primary in-person QR workflow. It does not define a mechanism for the provider check-in experience to pass request context to the Patient App; the patient independently chooses what to share when creating the SHLink. Separate work is underway to define a fuller check-in protocol that could support request context and a more integrated handoff between the provider check-in experience and the Patient App.
 :::
-
-> **Try it:** A working prototype with a sample QR code is available at [pshd-shl.exe.xyz/prototype.html](https://pshd-shl.exe.xyz/prototype.html).
 
 ---
 
