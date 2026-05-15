@@ -64,6 +64,16 @@ This IG defines:
 └──────────────┘                                    └──────────────┘
 ```
 
+:::info
+### Optional Workflow: Ahead-of-Time Check-In
+
+A receiver MAY support an ahead-of-time check-in workflow that accepts the same SHLink a patient would otherwise present as a QR code at the point of care. In this workflow, the patient begins a provider-operated check-in experience and is offered a field for a SHLink URL. The patient uses a KTC-enabled Patient App to generate a PatientSharedBundle and SHLink, copies a complete URL containing the SHLink, such as `shlink:/...` or a viewer URL ending in `#shlink:/...`, and pastes it into the provider check-in experience.
+
+Receivers that support this workflow SHALL resolve and process the submitted SHLink immediately upon submission, using the same SHLink constraints, retrieval protocol, decryption, validation, persistence, provenance, and security requirements defined in this IG. Receivers SHOULD NOT rely on the submitted SHLink remaining resolvable after submission, because the link may expire, be single-use, or otherwise become unavailable.
+
+This workflow is optional and does not change the primary in-person QR workflow. It does not define a mechanism for the provider check-in experience to pass request context to the Patient App; the patient independently chooses what to share when creating the SHLink. Separate work is underway to define a fuller check-in protocol that could support request context and a more integrated handoff between the provider check-in experience and the Patient App.
+:::
+
 > **Try it:** A working prototype with a sample QR code is available at [pshd-shl.exe.xyz/prototype.html](https://pshd-shl.exe.xyz/prototype.html).
 
 ---
