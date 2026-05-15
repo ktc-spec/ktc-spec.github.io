@@ -11,13 +11,16 @@ This implementation guide defines a constrained profile of SMART Health Links (S
 
 > 1. Patient app creates a SHLink pointing to a FHIR Bundle that may include:
 >     - a) Patient-shared FHIR resources conforming to the profiles in the following Implementation Guides: US Core, CARIN BlueButton, and CARIN Digital Insurance Card.
->     - b) Patient-authored PDF documents represented as PatientSharedDocumentReference resources. This US Core DocumentReference profile carries the PDF in `content.attachment`.
->     - c) Patient-authored PDF documents SHOULD focus on information from the patient's perspective: their own words, story, priorities, concerns, goals, care experiences, corrections, and context. They SHOULD NOT simply repeat clinical facts already available as discrete FHIR resources. When clinical facts can be represented discretely, the sender SHOULD include the corresponding FHIR resources instead of repeating those facts only in narrative.
+>     - b) PDF documents represented as PatientSharedDocumentReference resources, carried in `content.attachment`. Two kinds of PDF are defined and distinguished by `DocumentReference.type`:
+>         - **FHIR-Rendered PDF** — `type` = LOINC `60591-5` (*Patient summary Document*). A complete, human-readable rendering of every non-DocumentReference FHIR resource carried in the same Bundle, provided so receivers that cannot consume discrete FHIR still have a complete readable view.
+>         - **Patient Story PDF** — `type` = LOINC `51855-5` (*Patient Note*). A patient-authored narrative in the patient's own words: priorities, concerns, goals, care experiences, corrections, and context.
+>     - c) A Patient Story PDF SHOULD focus on information from the patient's perspective. It SHOULD NOT simply repeat clinical facts already available as discrete FHIR resources, though it MAY include clinical details where they are relevant to the patient's story. When clinical facts can be represented discretely, the sender SHOULD include the corresponding FHIR resources rather than relying on narrative alone.
 >
-> 2. The provider can scan the SHLink QR, resolve + decrypt the data, and persist all received patient-shared health data.
->     - a) The EHR SHALL persist all received FHIR resources conforming to the profiles in the Implementation Guides listed in (1)(a) and (1)(b), so they are associated with the patient's chart and available later to authorized users.
->     - b) This is a functional persistence requirement. It does not require the EHR to store each received resource in the data layer that backs the EHR's FHIR API, or to mirror received resources through that API, nor even to store them natively in FHIR.
->     - c) The EHR MAY satisfy the persistence requirement through product-specific storage approaches, including filing structured data, storing a chart-associated copy of the received content, rendering content into a document or note, preserving the original Bundle, or another approach that maintains access and provenance.
+> 2. The provider can scan the SHLink QR, resolve + decrypt the data, and persist received patient-shared health data.
+>     - a) The EHR SHALL persist, at minimum, received resources conforming to the **US Core Condition (Problems and Health Concerns)**, **US Core MedicationRequest**, **US Core AllergyIntolerance**, and **US Core Immunization** profiles, together with any received PatientSharedDocumentReference resources of either kind, so they are associated with the patient's chart and available later to authorized users.
+>     - b) The EHR SHOULD persist all other received FHIR resources conforming to the profiles in the Implementation Guides listed in (1)(a) — i.e., the full USCDI content carried in the Bundle. This draft permits a phased rollout; future versions of this IG may revisit whether full-USCDI persistence becomes required.
+>     - c) This is a functional persistence requirement. It does not require the EHR to store each received resource in the data layer that backs the EHR's FHIR API, or to mirror received resources through that API, nor even to store them natively in FHIR.
+>     - d) The EHR MAY satisfy the persistence requirement through product-specific storage approaches, including filing structured data, storing a chart-associated copy of the received content, rendering content into a document or note, preserving the original Bundle, or another approach that maintains access and provenance.
 >
 > 3. At no point in this flow does a patient need to sign into an EHR Portal.
 
@@ -159,7 +162,7 @@ Bundle (type: collection)
 └── [Additional FHIR resources]* (0..*)
 ```
 
-The Bundle SHALL contain a Patient resource and at least one additional patient-shared content entry. Content entries MAY include (1) PatientSharedDocumentReference resources, and (2) additional FHIR resources conforming to profiles in US Core, CARIN BlueButton, and CARIN Digital Insurance, or (3) both. Discrete FHIR resources SHOULD be included when available for clinical facts represented in patient-authored PDFs.
+The Bundle SHALL contain a Patient resource and at least one additional patient-shared content entry. Content entries MAY include (1) PatientSharedDocumentReference resources of either kind (FHIR-Rendered PDF and/or Patient Story PDF), and (2) additional FHIR resources conforming to profiles in US Core, CARIN BlueButton, and CARIN Digital Insurance Card, or (3) both. When a Bundle contains non-DocumentReference FHIR resources and the sender cannot assume the receiver will ingest them, the sender SHOULD also include a FHIR-Rendered PDF so a complete readable representation is available. Discrete FHIR resources SHOULD be included when available for clinical facts that would otherwise appear only in a Patient Story PDF.
 
 ### Constraints
 
@@ -169,7 +172,7 @@ The Bundle SHALL contain a Patient resource and at least one additional patient-
 | `timestamp` | 1..1 | When bundle was assembled |
 | `entry` | 2..* | Minimum: Patient and at least one patient-shared content entry |
 | `entry:patient` | 1..1 | Patient resource |
-| `entry:documentReference` | 0..* | Conforms to PatientSharedDocumentReference when a patient-authored PDF document is included |
+| `entry:documentReference` | 0..* | Conforms to PatientSharedDocumentReference when a PDF document is included |
 
 > **Note:** Resources in this Bundle SHOULD NOT include `meta.profile`. Receivers SHALL NOT require `meta.profile` to be present.
 
@@ -205,8 +208,8 @@ The Bundle SHALL contain a Patient resource and at least one additional patient-
         "type": {
           "coding": [{
             "system": "http://loinc.org",
-            "code": "60591-5",
-            "display": "Patient summary Document"
+            "code": "51855-5",
+            "display": "Patient Note"
           }]
         },
         "category": [{
@@ -223,7 +226,7 @@ The Bundle SHALL contain a Patient resource and at least one additional patient-
           "reference": "urn:uuid:b5e506f4-e14c-4e27-9543-4b8d1e1f3e2a"
         }],
         "date": "2026-01-30T12:00:00Z",
-        "description": "Patient-shared health summary",
+        "description": "Patient-shared narrative",
         "content": [{
           "attachment": {
             "contentType": "application/pdf",
@@ -252,7 +255,7 @@ This profile aligns with the US Core [Writing Clinical Notes](https://build.fhir
 |---------|-------------|------------|
 | `meta.security` | 0..* | SHOULD include `PATAST` (patient asserted) from `http://terminology.hl7.org/CodeSystem/v3-ObservationValue` |
 | `status` | 1..1 | Fixed: `current` |
-| `type` | 1..1 | Fixed: LOINC `60591-5` (Patient summary Document) |
+| `type` | 1..1 | SHALL be exactly one of: LOINC `60591-5` (*Patient summary Document*) for a **FHIR-Rendered PDF**, or LOINC `51855-5` (*Patient Note*) for a **Patient Story PDF**. |
 | `category` | 1..* | SHALL include `https://cms.gov/fhir/CodeSystem/patient-shared-category#patient-shared` |
 | `subject` | 1..1 | Reference(Patient) in same Bundle |
 | `author` | 1..* | SHALL include Reference(Patient) — the patient is the author/sharer |
@@ -261,7 +264,16 @@ This profile aligns with the US Core [Writing Clinical Notes](https://build.fhir
 | `content.attachment.contentType` | 1..1 | `application/pdf` |
 | `content.attachment.data` | 1..1 | Base64-encoded PDF |
 
-> **Note:** This profile applies only when a patient-authored PDF document is included. The PatientSharedBundle does not require a DocumentReference; apps MAY share only discrete FHIR resources.
+> **Note:** This profile applies whenever a PDF is included. The PatientSharedBundle does not require a DocumentReference; apps MAY share only discrete FHIR resources, only PDFs, or both.
+
+#### Document Kinds
+
+| Kind | `type` (LOINC) | Content expectation |
+|------|----------------|---------------------|
+| **FHIR-Rendered PDF** | `60591-5` *Patient summary Document* | A complete, human-readable rendering of every non-DocumentReference FHIR resource carried in the same Bundle. Intended as a fallback view of the structured content for receivers that cannot consume discrete FHIR. |
+| **Patient Story PDF** | `51855-5` *Patient Note* | A patient-authored narrative. SHOULD NOT simply repeat clinical facts already available as discrete FHIR resources in the Bundle, though MAY include clinical details where they are relevant to the patient's story. |
+
+Receivers SHALL distinguish the two kinds by `type`. A Bundle MAY contain any number of PatientSharedDocumentReference resources of either kind; receivers SHALL treat FHIR-Rendered PDFs and Patient Story PDFs as distinct documents.
 
 ---
 
@@ -309,7 +321,8 @@ This profile aligns with the US Core [Writing Clinical Notes](https://build.fhir
 - Include `exp` (expiration) in SHLink payload
 - Serve encrypted payload without requiring authentication
 - Return encrypted FHIR Bundle conforming to PatientSharedBundle profile
-- Represent any patient-authored PDF document as a PatientSharedDocumentReference resource
+- Represent any included PDF document as a PatientSharedDocumentReference resource with `type` = LOINC `60591-5` (FHIR-Rendered PDF) or `51855-5` (Patient Story PDF)
+- When including a FHIR-Rendered PDF, ensure it is a complete readable representation of every non-DocumentReference FHIR resource in the same Bundle
 - Accept `recipient` query parameter on retrieval endpoint
 - Audit each SHLink access with recipient and timestamp
 
@@ -319,11 +332,13 @@ This profile aligns with the US Core [Writing Clinical Notes](https://build.fhir
 - Minimize IP geofencing to enable reasonable international use
 - Include Patient resource with sufficient demographics for matching
 - Include `meta.security` with `PATAST` on DocumentReference (when present)
+- Include a FHIR-Rendered PDF whenever the Bundle carries non-DocumentReference FHIR resources, so receivers that cannot consume discrete FHIR still have a complete readable view
+- Keep any Patient Story PDF focused on the patient's perspective rather than restating discrete clinical content
 
 **MAY:**
 - Include FHIR resources conforming to profiles in the following Implementation Guides: US Core, CARIN BlueButton, and CARIN Digital Insurance Card
 - Include an App Attestation extension (see [App Attestation](#app-attestation-optional))
-- Include a PatientSharedDocumentReference resource
+- Include a FHIR-Rendered PDF DocumentReference, a Patient Story PDF DocumentReference, or both
 
 ### Provider EHR (Receiver)
 
@@ -332,7 +347,7 @@ This profile aligns with the US Core [Writing Clinical Notes](https://build.fhir
 - Supply `recipient` query parameter identifying requesting organization
 - Decrypt payload using key from SHLink
 - Parse PatientSharedBundle
-- Persist all received FHIR resources conforming to profiles in the following Implementation Guides: US Core, CARIN BlueButton, and CARIN Digital Insurance Card; so they are associated with the patient's chart and available later to authorized users
+- Persist, at minimum, received resources conforming to the US Core Condition (Problems and Health Concerns), US Core MedicationRequest, US Core AllergyIntolerance, and US Core Immunization profiles, together with any received PatientSharedDocumentReference resources of either kind, so they are associated with the patient's chart and available later to authorized users
 - Present persisted patient-shared FHIR content to authorized clinical users
 - Indicate patient-shared provenance in clinical UI
 
@@ -345,13 +360,15 @@ This profile aligns with the US Core [Writing Clinical Notes](https://build.fhir
 - Support clinician review before filing to chart
 - Display an error message when an expired SHLink is scanned
 - Verify App Attestation when present and display provenance indicator to clinician
+- Persist all other received FHIR resources conforming to profiles in US Core, CARIN BlueButton, and CARIN Digital Insurance Card — i.e., the full USCDI content carried in the Bundle
+- Treat the FHIR-Rendered PDF and Patient Story PDF differently in the chart — for example, surfacing the FHIR-Rendered PDF as a fallback readable view when discrete ingestion is unavailable, while preserving the Patient Story PDF as patient-authored narrative
 
 **MAY:**
 - Parse and display discrete FHIR resources from Bundle
 - Ingest discrete data into structured EHR fields
 - Support consumption of PatientSharedDocumentReference resources and other FHIR resources from the Bundle
 
-The receiver persistence requirement is functional: all received content SHALL remain associated with the patient's chart and available for later access by authorized users. This requirement does not require the EHR to store each received resource in the data layer that backs the EHR's FHIR API, or to mirror received resources through that API. EHRs MAY satisfy this requirement through product-specific storage approaches, including filing structured data, storing a chart-associated copy of the received content, rendering content into a document or note, preserving the original Bundle, or another approach that maintains access and provenance.
+The receiver persistence requirement is functional and phased. At minimum, EHRs SHALL persist received resources conforming to the US Core Condition (Problems and Health Concerns), US Core MedicationRequest, US Core AllergyIntolerance, and US Core Immunization profiles, together with any PatientSharedDocumentReference resources of either kind; this content SHALL remain associated with the patient's chart and available for later access by authorized users. EHRs SHOULD persist all other received FHIR resources conforming to the listed Implementation Guides — the full USCDI carried in the Bundle. Future versions of this IG may revisit whether full-USCDI persistence becomes required. This requirement does not require the EHR to store each received resource in the data layer that backs the EHR's FHIR API, or to mirror received resources through that API, nor to store them natively in FHIR. EHRs MAY satisfy it through product-specific storage approaches, including filing structured data, storing a chart-associated copy of the received content, rendering content into a document or note, preserving the original Bundle, or another approach that maintains access and provenance.
 
 ---
 
@@ -493,4 +510,3 @@ This approach aligns with [NIST Zero Trust Architecture](https://csrc.nist.gov/p
 - [US Core Writing Clinical Notes](https://build.fhir.org/ig/HL7/US-Core/writing-clinical-notes.html)
 - [International Patient Summary (IPS)](http://hl7.org/fhir/uv/ips/)
 - [USCDI v3](https://www.healthit.gov/isa/united-states-core-data-interoperability-uscdi)
-
