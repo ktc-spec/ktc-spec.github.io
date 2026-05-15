@@ -1,7 +1,7 @@
 # Patient-Shared Health Documents via SMART Health Links
 
 > **Status:** Draft for July 2026
-> **Version:** 0.9.1
+> **Version:** 0.9.2
 
 ## Introduction
 
@@ -69,7 +69,7 @@ This IG defines:
 :::info
 ### Optional Workflow: Ahead-of-Time Check-In
 
-A receiver MAY support an ahead-of-time check-in workflow that accepts the same SHLink a patient would otherwise present as a QR code at the point of care. In this workflow, the patient begins a provider-operated check-in experience and is offered a field for a SHLink URL. The patient uses a KTC-enabled Patient App to generate a PatientSharedBundle and SHLink, copies a complete URL containing the SHLink, such as `shlink:/...` or a viewer URL ending in `#shlink:/...`, and pastes it into the provider check-in experience.
+A receiver MAY support an ahead-of-time check-in workflow that accepts the same SHLink a patient would otherwise present as a QR code at the point of care. In this workflow, the patient begins a provider-operated check-in experience and is offered a field for a SHLink URL. The patient uses a KTC-enabled Patient App to generate a PatientSharedBundle and SHLink, copies the SHLink as a URL, and pastes it into the provider check-in experience.
 
 Receivers that support this workflow SHALL resolve and process the submitted SHLink immediately upon submission, using the same SHLink constraints, retrieval protocol, decryption, validation, persistence, provenance, and security requirements defined in this IG. Receivers SHOULD NOT rely on the submitted SHLink remaining resolvable after submission, because the link may expire, be single-use, or otherwise become unavailable.
 
@@ -335,6 +335,7 @@ Receivers SHALL distinguish the two kinds by `type`. A Bundle MAY contain any nu
 - When including a FHIR-Rendered PDF, ensure it is a complete readable representation of every non-DocumentReference FHIR resource in the same Bundle
 - Accept `recipient` query parameter on retrieval endpoint
 - Audit each SHLink access with recipient and timestamp
+- Enable the patient to display the SHLink as a QR code
 
 **SHOULD:**
 - Set short-lived expiration for sensitive data
@@ -344,6 +345,7 @@ Receivers SHALL distinguish the two kinds by `type`. A Bundle MAY contain any nu
 - Include `meta.security` with `PATAST` on DocumentReference (when present)
 - Include a FHIR-Rendered PDF whenever the Bundle carries non-DocumentReference FHIR resources, so receivers that cannot consume discrete FHIR still have a complete readable view
 - Keep any Patient Story PDF focused on the patient's perspective rather than restating discrete clinical content
+- Enable the patient to copy the SHLink as a URL
 
 **MAY:**
 - Include FHIR resources conforming to profiles in the following Implementation Guides: US Core, CARIN BlueButton, and CARIN Digital Insurance Card
