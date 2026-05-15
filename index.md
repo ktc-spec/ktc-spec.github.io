@@ -64,10 +64,9 @@ This IG defines:
 └──────────────┘                                    └──────────────┘
 ```
 
-> **Try it:** A working prototype with a sample QR code is available at [pshd-shl.exe.xyz/prototype.html](https://pshd-shl.exe.xyz/prototype.html).
+> **Try it:** A reference implementation with a sample QR code is available at [pshd-shl.exe.xyz/prototype.html](https://pshd-shl.exe.xyz/prototype.html).
 
-:::info
-### Optional Workflow: Ahead-of-Time Check-In
+::: info Optional Workflow: Ahead-of-Time Check-In
 
 A receiver MAY support an ahead-of-time check-in workflow that accepts the same SHLink a patient would otherwise present as a QR code at the point of care. In this workflow, the patient begins a provider-operated check-in experience and is offered a field for a SHLink URL. The patient uses a KTC-enabled Patient App to generate a PatientSharedBundle and SHLink, copies the SHLink as a URL, and pastes it into the provider check-in experience.
 
@@ -494,8 +493,7 @@ Patient Apps SHALL maintain audit logs of SHLink access including:
 - Recipient organization (from query parameter)
 
 
-:::info
-### Guidance: Retrieving SHLink Payloads
+::: info Guidance: Retrieving SHLink Payloads
 
 SHLink payload URLs should be treated as untrusted external input. This IG does not define a required CMS hosting-domain allowlist; receivers are expected to secure retrieval rather than depend on pre-coordinated hosting domains.
 

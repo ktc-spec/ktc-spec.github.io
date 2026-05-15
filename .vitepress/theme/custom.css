@@ -1,0 +1,33 @@
+:root {
+  --vp-c-brand-1: #0f766e;
+  --vp-c-brand-2: #0d9488;
+  --vp-c-brand-3: #14b8a6;
+  --vp-home-hero-name-color: #0f766e;
+  --vp-font-family-base: Inter, ui-sans-serif, system-ui, sans-serif;
+  --vp-font-family-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+.VPDoc:not(.has-sidebar) .content {
+  max-width: 1040px;
+}
+
+.VPDoc:not(.has-sidebar) .content-container {
+  max-width: 920px;
+}
+
+.vp-doc blockquote {
+  border-left-color: var(--vp-c-brand-2);
+}
+
+.vp-doc table {
+  display: table;
+  width: 100%;
+}
+
+.vp-doc th {
+  white-space: nowrap;
+}
+
+.vp-doc div[class*="language-"] {
+  border: 1px solid var(--vp-c-divider);
+}
