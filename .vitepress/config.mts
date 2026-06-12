@@ -8,7 +8,7 @@ export default defineConfig({
   description: 'Patient-Shared Health Documents via SMART Health Links',
   cleanUrls: true,
   lastUpdated: true,
-  srcExclude: ['index-*.md'],
+  srcExclude: ['index-*.md', 'TEST-VECTORS-DESIGN.md'],
   markdown: {
     lineNumbers: true
   },
@@ -16,6 +16,7 @@ export default defineConfig({
     siteTitle: 'KTC Spec',
     nav: [
       { text: 'Spec', link: '/' },
+      { text: 'Test Vectors', link: '/test-vectors' },
       { text: 'Reference Implementation', link: 'https://pshd-shl.exe.xyz/prototype.html' },
       {
         text: 'Contribute',

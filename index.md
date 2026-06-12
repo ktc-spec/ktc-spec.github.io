@@ -65,6 +65,8 @@ This IG defines:
 ```
 
 > **Try it:** A reference implementation with a sample QR code is available at [pshd-shl.exe.xyz/prototype.html](https://pshd-shl.exe.xyz/prototype.html).
+>
+> **Test it:** Machine-readable conformance [test vectors](/test-vectors) cover both carrier forms, compression handling, tampered payloads, profile checks, and App Attestation — runnable live, offline in CI, or by scanning the QR wall.
 
 ::: info Optional Workflow: Ahead-of-Time Check-In
 
@@ -103,6 +105,10 @@ This IG profiles the [SMART Health Links specification](https://hl7.org/fhir/uv/
 
 Patient Apps SHALL generate SHLinks with the `U` flag, meaning the link resolves directly to a single encrypted file without requiring a passcode. Since this is the default SHLink behavior, most implementations will already conform.
 
+### Carrier Forms
+
+A SHLink may reach a receiver as a bare `shlink:/...` URI (typical for QR codes) or as a viewer-prefixed URL of the form `https://viewer.example/#shlink:/...` (typical when the link is copied as a URL — including in the ahead-of-time check-in workflow above). Receivers SHALL accept both forms by extracting the `shlink:/` substring; the embedded payload is identical either way.
+
 ---
 
 ## Retrieval Protocol
@@ -131,6 +137,8 @@ Content-Type: application/jose
 
 Body contains a JWE (JSON Web Encryption) compact serialization string.
 
+Patient Apps SHOULD serve the retrieval endpoint with a permissive CORS policy (`Access-Control-Allow-Origin: *`) so that browser-based receivers can fetch payloads directly. The payload is encrypted, so CORS exposure adds no confidentiality risk.
+
 ### Decryption
 
 Per the SHLink specification, files are encrypted using JWE with:
@@ -139,6 +147,10 @@ Per the SHLink specification, files are encrypted using JWE with:
 - `"cty": "application/fhir+json"` (content type of decrypted payload)
 
 The EHR decrypts using the 32-byte `key` from the SHLink payload (base64url-decoded) to obtain the FHIR Bundle.
+
+::: info Compression (`zip: DEF`)
+The base SHLink specification permits senders to compress the plaintext before encryption, signaled by `"zip": "DEF"` in the JWE protected header (raw DEFLATE per RFC 1951, no zlib wrapper). This IG does not prohibit it, so receivers SHOULD support inflating `zip: DEF` payloads after decryption. Senders SHOULD prefer uncompressed payloads for maximum receiver compatibility — several widely used JOSE libraries no longer implement JWE `zip`, and field testing has shown it to be a common receiver failure point.
+:::
 
 **Example JWE structure (compact serialization):**
 ```
@@ -273,7 +285,7 @@ This profile aligns with the US Core [Writing Clinical Notes](https://build.fhir
 | `content.attachment.contentType` | 1..1 | `application/pdf` |
 | `content.attachment.data` | 1..1 | Base64-encoded PDF |
 
-> **Note:** This profile applies whenever a PDF is included. The PatientSharedBundle does not require a DocumentReference; apps MAY share only discrete FHIR resources, only PDFs, or both.
+> **Note:** This profile applies to the two patient-shared PDF kinds — DocumentReferences typed LOINC `60591-5` or `51855-5` (or carrying the `patient-shared` category). The PatientSharedBundle does not require a DocumentReference; apps MAY share only discrete FHIR resources, only PDFs, or both. A Bundle MAY also carry **other** DocumentReference resources conforming to US Core — for example, existing clinical notes from the patient's record, in their original content types — and those are ordinary USCDI content, not constrained by this profile. Receivers SHALL NOT reject a Bundle because a non-patient-shared DocumentReference is not a PDF.
 
 #### Document Kinds
 
