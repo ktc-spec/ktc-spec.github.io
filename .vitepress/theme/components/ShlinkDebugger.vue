@@ -11,7 +11,17 @@
     />
     <div class="dbg-row">
       <button :disabled="busy || !input.trim()" @click="run">{{ busy ? 'Running…' : 'Run pipeline' }}</button>
+      <button v-if="canScan" class="dbg-secondary" @click="scanning ? stopScan() : startScan()">
+        {{ scanning ? 'Stop camera' : 'Scan QR with camera' }}
+      </button>
       <label><input type="checkbox" v-model="useRawJwe" /> payload host blocks CORS — paste the raw JWE instead</label>
+    </div>
+    <div v-show="scanning" class="dbg-scan">
+      <!-- The PREVIEW is small, but decoding runs on full-resolution frames grabbed
+           from the native video size — small previews that also capture small are why
+           browser QR scanning used to feel flaky. -->
+      <video ref="videoEl" autoplay playsinline muted />
+      <p>{{ scanStatus }}</p>
     </div>
     <textarea
       v-if="useRawJwe"
@@ -34,8 +44,13 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { withBase } from 'vitepress'
+import jsQRImport from 'jsqr'
+
+// jsqr ships CJS; depending on bundler interop the default import can arrive as the
+// function itself or as a {default: fn} namespace — normalize once.
+const jsQR = typeof jsQRImport === 'function' ? jsQRImport : jsQRImport?.default
 
 const input = ref('')
 const rawJwe = ref('')
@@ -44,6 +59,88 @@ const busy = ref(false)
 const steps = ref([])
 
 const step = (name, status, lines = []) => steps.value.push({ name, status, lines })
+
+// --- camera QR scanning -------------------------------------------------------------
+const canScan = ref(false)
+const scanning = ref(false)
+const scanStatus = ref('')
+const videoEl = ref(null)
+let stream = null
+let scanTimer = null
+
+onMounted(() => {
+  canScan.value = !!navigator.mediaDevices?.getUserMedia
+})
+onUnmounted(stopScan)
+
+function stopScan() {
+  if (scanTimer) clearInterval(scanTimer)
+  scanTimer = null
+  for (const t of stream?.getTracks() ?? []) t.stop()
+  stream = null
+  scanning.value = false
+}
+
+async function startScan() {
+  steps.value = []
+  try {
+    // Ask for a HIGH-resolution capture: QR decoding needs pixels. The on-screen
+    // preview is shrunk with CSS, but frames are grabbed at native capture size.
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false,
+    })
+  } catch (e) {
+    scanStatus.value = `camera unavailable: ${e.message}`
+    return
+  }
+  scanning.value = true
+  scanStatus.value = 'Looking for a QR code…'
+  videoEl.value.srcObject = stream
+  // The autoplay attribute is not reliable for srcObject assigned post-mount — play
+  // explicitly, or videoWidth stays 0 and the scan loop never sees a frame.
+  try { await videoEl.value.play() } catch {}
+
+  const canvas = document.createElement('canvas')
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  // BarcodeDetector exists on some platforms without actually supporting qr_code
+  // (desktop Linux); trust it only when the format is really there, else jsQR.
+  let detector = null
+  if ('BarcodeDetector' in window) {
+    try {
+      const formats = await window.BarcodeDetector.getSupportedFormats()
+      if (formats.includes('qr_code')) detector = new window.BarcodeDetector({ formats: ['qr_code'] })
+    } catch {}
+  }
+
+  scanTimer = setInterval(async () => {
+    const video = videoEl.value
+    if (!video || video.videoWidth === 0) return
+    canvas.width = video.videoWidth // full native resolution, not the preview size
+    canvas.height = video.videoHeight
+    ctx.drawImage(video, 0, 0)
+    let text = null
+    try {
+      if (detector) {
+        const codes = await detector.detect(canvas)
+        text = codes[0]?.rawValue ?? null
+      } else {
+        const img = ctx.getImageData(0, 0, canvas.width, canvas.height)
+        text = jsQR(img.data, img.width, img.height)?.data ?? null
+      }
+    } catch (e) {
+      // a single bad frame is fine, but a systematic error must not be silent
+      scanStatus.value = `decode error: ${e?.message ?? e}`
+    }
+    if (text && /shlink:\//.test(text)) {
+      input.value = text
+      stopScan()
+      run()
+    } else if (text) {
+      scanStatus.value = 'Found a QR, but it does not contain a SHLink — keep aiming…'
+    }
+  }, 250)
+}
 
 async function run() {
   busy.value = true
@@ -142,6 +239,9 @@ async function run() {
 .dbg-row { display: flex; gap: 16px; align-items: center; margin: 10px 0; flex-wrap: wrap; }
 .dbg-row button { background: var(--vp-c-brand-1); color: white; border: 0; padding: 8px 18px; border-radius: 6px; font-weight: 600; cursor: pointer; }
 .dbg-row button:disabled { opacity: 0.5; cursor: default; }
+.dbg-row .dbg-secondary { background: var(--vp-c-bg-soft); color: var(--vp-c-brand-1); border: 1px solid var(--vp-c-brand-1); }
+.dbg-scan video { width: 280px; max-width: 100%; border-radius: 8px; border: 1px solid var(--vp-c-divider); display: block; }
+.dbg-scan p { font-size: 0.85em; color: var(--vp-c-text-2); margin: 6px 0 0; }
 .dbg-row label { font-size: 0.85em; color: var(--vp-c-text-2); display: flex; gap: 6px; align-items: center; }
 .dbg-steps { list-style: none; padding: 0; margin-top: 12px; }
 .dbg-steps li { display: flex; gap: 10px; padding: 10px 12px; border-left: 3px solid var(--vp-c-divider); margin-bottom: 6px; background: var(--vp-c-bg-soft); border-radius: 0 6px 6px 0; }

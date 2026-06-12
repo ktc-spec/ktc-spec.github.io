@@ -114,11 +114,24 @@ export function bundleChecks(bundle) {
     const r = e?.resource;
     if (r?.resourceType !== 'DocumentReference') continue;
     const code = r?.type?.coding?.find?.((c) => c?.system === 'http://loinc.org')?.code;
-    if (code !== '51855-5' && code !== '60591-5') {
-      errors.push(`entry[${i}]: DocumentReference.type must be LOINC 51855-5 or 60591-5`);
-    }
+    const isKtcKind = code === '51855-5' || code === '60591-5';
+    const claimsCategory = r?.category?.some?.((cc) =>
+      cc?.coding?.some?.((c) => c?.code === 'patient-shared'),
+    );
     const att = r?.content?.[0]?.attachment;
-    if (att?.contentType !== 'application/pdf') errors.push(`entry[${i}]: attachment.contentType must be application/pdf`);
+    if (!isKtcKind && !claimsCategory) {
+      // An ordinary DocumentReference (e.g. a clinical note carried from the record)
+      // is valid USCDI content — the PatientSharedDocumentReference profile applies
+      // only to the two patient-shared PDF kinds. Just flag unreachable attachments.
+      if (att?.url && !att?.data) {
+        warnings.push(`entry[${i}]: attachment.url is unreachable for SHL receivers — prefer inline data`);
+      }
+      continue;
+    }
+    if (!isKtcKind) {
+      errors.push(`entry[${i}]: patient-shared category requires type LOINC 51855-5 or 60591-5`);
+    }
+    if (att?.contentType !== 'application/pdf') errors.push(`entry[${i}]: patient-shared PDF attachment.contentType must be application/pdf`);
     if (typeof att?.data !== 'string' || !att.data) errors.push(`entry[${i}]: attachment.data (inline base64) is required`);
     const hasPataast = r?.meta?.security?.some?.((c) => c?.code === 'PATAST');
     if (!hasPataast) warnings.push(`entry[${i}]: meta.security SHOULD include PATAST`);

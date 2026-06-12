@@ -11,6 +11,7 @@
     "docs:preview": "vitepress preview ."
   },
   "devDependencies": {
+    "jsqr": "^1.4.0",
     "qrcode": "^1.5.4",
     "vitepress": "^1.6.4"
   }

@@ -179,6 +179,23 @@ const persistenceCore = () => [
   },
 ];
 
+// An ordinary US Core DocumentReference carried from the patient's record — NOT one
+// of the two patient-shared PDF kinds, and deliberately not application/pdf. The
+// PatientSharedDocumentReference profile does not apply to it; it is plain USCDI.
+const carriedNote = () => ({
+  fullUrl: 'urn:uuid:33333333-0000-4000-8000-000000000001',
+  resource: {
+    resourceType: 'DocumentReference',
+    status: 'current',
+    type: { coding: [{ system: 'http://loinc.org', code: '11506-3', display: 'Progress note' }], text: 'Progress note' },
+    category: [{ coding: [{ system: 'http://hl7.org/fhir/us/core/CodeSystem/us-core-documentreference-category', code: 'clinical-note' }] }],
+    subject: { reference: PATIENT_URN },
+    date: '2025-09-14T00:00:00Z',
+    author: [{ display: 'Dr. Example Clinician' }],
+    content: [{ attachment: { contentType: 'text/rtf', data: Buffer.from('{\\rtf1\\ansi Progress note: doing well.\\par}').toString('base64') } }],
+  },
+});
+
 const carinCoverage = () => ({
   fullUrl: 'urn:uuid:22222222-0000-4000-8000-000000000001',
   resource: {
@@ -221,6 +238,7 @@ async function main() {
     'both-pdfs': bundle([patient, storyPdf(), renderedPdf(), ...persistenceCore()]),
     'persistence-core': bundle([patient, ...persistenceCore(), renderedPdf()]),
     'carin-dic': bundle([patient, carinCoverage(), renderedPdf()]),
+    'carried-note': bundle([patient, ...persistenceCore(), carriedNote(), renderedPdf()]),
     attestation: bundle([patient, storyPdf()], [{ url: 'https://cms.gov/fhir/StructureDefinition/app-attestation', valueString: await signAttestation() }]),
     'bad-type-document': { ...bundle([patient, storyPdf()]), type: 'document' },
     'bad-single-entry': bundle([patient]),
@@ -261,7 +279,12 @@ async function main() {
     const failStage = tamper ? 'decrypt' : exp === EXPIRED ? 'payload' : null;
     const v = {
       id, title, tier, level, tests, description,
-      input: { shlink, viewerPrefixed: viewerPrefixed(shlink), qr: `qr/${id}.png` },
+      input: {
+        shlink,
+        viewerPrefixed: viewerPrefixed(shlink),
+        qr: `qr/${id}.png`,
+        qrContent: qrForm === 'prefixed' ? viewerPrefixed(shlink) : shlink,
+      },
       expect: {
         outcome: failStage ? 'reject' : 'success',
         ...(failStage ? { failStage } : {}),
@@ -333,7 +356,7 @@ async function main() {
       id, title: 'base64url alphabet (the atob trap)', tier: 'decode', level: 'baseline',
       tests: ['#shlink-payload-decoded'],
       description: "Payload whose base64url encoding contains both '-' and '_'. Decoders using plain base64/atob() fail here; correct base64url decoding succeeds. Observed failure in a real scanner.",
-      input: { shlink, viewerPrefixed: viewerPrefixed(shlink), qr: `qr/${id}.png` },
+      input: { shlink, viewerPrefixed: viewerPrefixed(shlink), qr: `qr/${id}.png`, qrContent: shlink },
       expect: {
         outcome: 'success', payload,
         decrypted: { sha256: hex(await sha256(plaintext)), bundle: 'bundles/minimal.json', entries: bundles.minimal.entry.length },
@@ -395,7 +418,7 @@ async function main() {
       id, title: 'Gone: payload URL returns 404', tier: 'retrieve', level: 'robustness',
       tests: ['#retrieval-protocol'],
       description: 'A well-formed, unexpired link whose file is gone (revoked / exhausted). Receivers show a clear, friendly error — never a crash, never partial data.',
-      input: { shlink, viewerPrefixed: viewerPrefixed(shlink), qr: `qr/${id}.png` },
+      input: { shlink, viewerPrefixed: viewerPrefixed(shlink), qr: `qr/${id}.png`, qrContent: shlink },
       expect: { outcome: 'reject', failStage: 'retrieve', payload, notes: ['HTTP 404; the receiver-facing error should not be a stack trace.'] },
       responses: { [goneUrl]: { status: 404 } },
     });
@@ -443,7 +466,7 @@ async function main() {
       id, title: 'Key with base64url-only characters', tier: 'decrypt', level: 'baseline',
       tests: ['#decryption'],
       description: "The 43-char key contains '-' and '_'. Decoders converting via plain base64 corrupt the key and fail the auth tag.",
-      input: { shlink, viewerPrefixed: viewerPrefixed(shlink), qr: `qr/${id}.png` },
+      input: { shlink, viewerPrefixed: viewerPrefixed(shlink), qr: `qr/${id}.png`, qrContent: shlink },
       expect: {
         outcome: 'success', payload,
         decrypted: { sha256: hex(await sha256(plaintext)), bundle: 'bundles/minimal.json', entries: bundles.minimal.entry.length },
@@ -478,6 +501,13 @@ async function main() {
     tests: ['#fhir-bundle-profile-patientsharedbundle'], bundleName: 'carin-dic',
     label: 'Insurance card',
     description: 'Coverage per CARIN Digital Insurance Card — an in-scope MAY for senders; receivers SHOULD persist it as part of full-USCDI content.',
+  });
+  await vector({
+    id: 'ktc-b9-carried-note', title: 'Ordinary DocumentReference carried along', tier: 'bundle', level: 'baseline',
+    tests: ['#documentreference-profile-patientshareddocumentreference'], bundleName: 'carried-note',
+    label: 'Record note rides along',
+    description: 'A US Core clinical-note DocumentReference from the patient\'s record (LOINC 11506-3, text/rtf, no patient-shared category) alongside the KTC PDFs. The PatientSharedDocumentReference profile constrains only the two patient-shared kinds; other DocumentReferences are ordinary USCDI content and MUST be accepted.',
+    notes: ['Receivers must not reject the bundle because a non-patient-shared DocumentReference is not a PDF.'],
   });
   await vector({
     id: 'ktc-b5-attestation', title: 'App Attestation (valid)', tier: 'bundle', level: 'baseline',

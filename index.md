@@ -285,7 +285,7 @@ This profile aligns with the US Core [Writing Clinical Notes](https://build.fhir
 | `content.attachment.contentType` | 1..1 | `application/pdf` |
 | `content.attachment.data` | 1..1 | Base64-encoded PDF |
 
-> **Note:** This profile applies whenever a PDF is included. The PatientSharedBundle does not require a DocumentReference; apps MAY share only discrete FHIR resources, only PDFs, or both.
+> **Note:** This profile applies to the two patient-shared PDF kinds — DocumentReferences typed LOINC `60591-5` or `51855-5` (or carrying the `patient-shared` category). The PatientSharedBundle does not require a DocumentReference; apps MAY share only discrete FHIR resources, only PDFs, or both. A Bundle MAY also carry **other** DocumentReference resources conforming to US Core — for example, existing clinical notes from the patient's record, in their original content types — and those are ordinary USCDI content, not constrained by this profile. Receivers SHALL NOT reject a Bundle because a non-patient-shared DocumentReference is not a PDF.
 
 #### Document Kinds
 

@@ -11,6 +11,16 @@ const TIERS = [
 const byTier = (t) => data.vectors.filter((v) => v.tier === t)
 const scannable = data.vectors.filter((v) => v.input.qr)
 const levelClass = (l) => ({ baseline: 'lv-base', robustness: 'lv-rob', negative: 'lv-neg' }[l] ?? '')
+
+import { ref } from 'vue'
+const copiedId = ref('')
+async function copyLink(v) {
+  try {
+    await navigator.clipboard.writeText(v.input.qrContent ?? v.input.shlink)
+    copiedId.value = v.id
+    setTimeout(() => { if (copiedId.value === v.id) copiedId.value = '' }, 2000)
+  } catch {}
+}
 </script>
 
 # Test Vectors
@@ -69,11 +79,9 @@ SHLink — one of these, or one your own app produced — into the
       <td><strong>{{ v.title }}</strong><br><span class="vec-desc">{{ v.description }}</span></td>
       <td><span :class="['vec-level', levelClass(v.level)]">{{ v.level }}</span></td>
       <td>{{ v.expect.outcome === 'success' ? 'resolves' : `reject @ ${v.expect.failStage}` }}</td>
-      <td><span v-for="t in v.tests" :key="t"><a :href="withBase('/' + t)">{{ t }}</a><br></span></td>
-      <td>
-        <a :href="withBase(`/vectors/vectors/${v.id}.json`)">vector</a>
-        <template v-if="v.expect.decrypted"> · <a :href="withBase('/vectors/' + v.expect.decrypted.bundle)">bundle</a></template>
-        <template v-if="v.input.qr"> · <a :href="withBase('/vectors/' + v.input.qr)">QR</a></template>
+      <td class="vec-files"><span v-for="t in v.tests" :key="t"><a :href="withBase('/' + t)" target="_blank" rel="noopener">{{ t }}</a><br></span></td>
+      <td class="vec-files">
+        <a :href="withBase(`/vectors/vectors/${v.id}.json`)" target="_blank" rel="noopener">vector</a><template v-if="v.expect.decrypted"> · <a :href="withBase('/vectors/' + v.expect.decrypted.bundle)" target="_blank" rel="noopener">bundle</a></template><template v-if="v.input.qr"> · <a :href="withBase('/vectors/' + v.input.qr)" target="_blank" rel="noopener">QR</a></template>
       </td>
     </tr>
   </tbody>
@@ -92,6 +100,7 @@ your implementation shows against the expectation.
     <img :src="withBase('/vectors/' + v.input.qr)" :alt="`QR for ${v.id}`" loading="lazy" />
     <div class="qr-meta">
       <code>{{ v.id }}</code>
+      <button type="button" class="qr-copy" @click="copyLink(v)">{{ copiedId === v.id ? 'Copied!' : 'Copy link' }}</button>
       <p>{{ v.expect.outcome === 'success'
           ? `You should see: ${v.expect.payload.label ?? '(no label)'} — Jessica Argonaut, DOB 1985-03-15, ${v.expect.decrypted.entries} entries.`
           : `Expected: clear error at the ${v.expect.failStage} stage.` }}</p>
@@ -111,6 +120,7 @@ the link's own payload URL.
 
 <style scoped>
 .vec-desc { color: var(--vp-c-text-2); font-size: 0.85em; }
+.vec-files { white-space: nowrap; }
 .vec-level { font-size: 0.78em; font-weight: 600; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
 .lv-base { background: var(--vp-c-brand-soft); color: var(--vp-c-brand-1); }
 .lv-rob  { background: var(--vp-c-yellow-soft); color: var(--vp-c-yellow-1); }
@@ -119,5 +129,7 @@ the link's own payload URL.
 .qr-cell { border: 1px solid var(--vp-c-divider); border-radius: 8px; padding: 12px; }
 .qr-cell img { width: 100%; image-rendering: pixelated; border-radius: 4px; }
 .qr-meta code { font-size: 0.8em; }
+.qr-copy { float: right; font-size: 0.75em; font-weight: 600; padding: 2px 10px; border-radius: 6px; border: 1px solid var(--vp-c-brand-1); color: var(--vp-c-brand-1); background: transparent; cursor: pointer; }
+.qr-copy:hover { background: var(--vp-c-brand-soft); }
 .qr-meta p { font-size: 0.82em; color: var(--vp-c-text-2); margin: 6px 0 0; }
 </style>
