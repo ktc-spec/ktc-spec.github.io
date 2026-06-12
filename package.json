@@ -4,11 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "docs:dev": "vitepress dev .",
-    "docs:build": "vitepress build .",
+    "gen": "node tools/generate-vectors.mjs",
+    "test:vectors": "node tools/generate-vectors.mjs && node tools/selftest.mjs",
+    "docs:dev": "node tools/generate-vectors.mjs && vitepress dev .",
+    "docs:build": "node tools/generate-vectors.mjs && vitepress build .",
     "docs:preview": "vitepress preview ."
   },
   "devDependencies": {
+    "qrcode": "^1.5.4",
     "vitepress": "^1.6.4"
   }
 }
